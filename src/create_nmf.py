@@ -21,21 +21,35 @@ def write_to_csv(name, nparray):
             c1.writerow(row)
         csv_file.close()
 
-table=pd.read_csv('completed.csv')
+completed=pd.read_csv('completed.csv')
+completed['score']=completed['score'].replace(0,74)
+dropped=pd.read_csv('dropped.csv')
+dropped['score']=dropped['score'].replace(0,47)
+watching=pd.read_csv('watching.csv')
+watching=watching[watching['score']!=0]
+on_hold=pd.read_csv('on_hold.csv')
+on_hold=on_hold[on_hold['score']!=0]
+
+table=pd.concat([completed, dropped, watching, on_hold])
+del completed
+del dropped
+del watching
+del on_hold
+print 'table made'
+
 table['username']=table['username']-1
 table['anime_id']=table['anime_id']-1
 matrix=csr_matrix((table['score'],(table['username'], table['anime_id'])))
+del table
 n_components=10
 nmf=NMF(n_components=n_components, init='random', random_state=0)
 nmf.fit(matrix)
+print 'model fitted'
 
 U = nmf.transform(matrix)
 V = nmf.components_
-V_inv = np.linalg.lstsq(V, np.identity(n_components))[0]
 
 make_csv('U.csv')
 make_csv('V_T.csv')
-make_csv('V_inv.csv')
 write_to_csv('U.csv', U)
 write_to_csv('V_T.csv', V.T)
-write_to_csv('V_inv.csv', V_inv)
