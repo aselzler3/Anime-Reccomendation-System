@@ -113,7 +113,7 @@ def recommendation_for_user():
     new_R=np.dot(s,V)
     for i in range(len(new_R)):
         ratio = (popularity[item_mapping[i]]-np.sqrt(popularity[item_mapping[i]]))/popularity[item_mapping[i]]
-        new_R[i]=new_R[i]+average_ratings[item_mapping[i]]*ratio+np.mean(user[:,1])-74
+        new_R[i]=(new_R[i]+average_ratings[item_mapping[i]]+np.mean(user[:,1])-74)*ratio
     seen = [row[0] for row in scores]
     others = [watching, dropped, on_hold, plan_to_watch]
     for x in others:
