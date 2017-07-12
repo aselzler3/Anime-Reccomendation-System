@@ -63,7 +63,9 @@ def Type(ID):
     else:
         return None
 
-def recommendation_for_user(username):
+def recommendation_for_user(text, adult, filter_by_type, TYPE, filter_by_genre, GENRE,
+filter_by_year, min_year, max_year, filter_by_episodes, min_episodes, max_episodes,
+filter_by_popularity, min_popularity):
     Recommendations = []
     url='https://anilist.co/api/'
     cid='selzla-6acux'
@@ -71,7 +73,7 @@ def recommendation_for_user(username):
     params={'grant_type':"client_credentials",'client_id':cid,'client_secret':sec}
     access=requests.post(url+'auth/access_token',data=params)
     access_token=access.json()['access_token']
-    user_anime=requests.get(url+'user/'+username+'/animelist?access_token='+access_token)
+    user_anime=requests.get(url+'user/'+text+'/animelist?access_token='+access_token)
     completed = user_anime.json()['lists']['completed']
 
 
@@ -120,21 +122,12 @@ def recommendation_for_user(username):
     rec=np.argsort(-1*new_R)
     rec=[item_mapping[x] for x in rec]
 
-    type_filter=True
-    kind_type='TV'
-    genre_filter=False
-    kind_genre='Action'
-    year_filter, min_year, max_year = False, 2000, 2004
-    episodes_filter, min_episodes, max_episodes = False, 1, 100
-    adult_filter, kind_adult = True, False
-    popularity_filter, min_popularity = False, 1000
-
-    f_type = (type_filter, kind_type)
-    f_genres = (genre_filter, kind_genre)
-    f_year = (year_filter, min_year, max_year)
-    f_episodes = (episodes_filter, min_episodes, max_episodes)
-    f_adult = (adult_filter, kind_adult)
-    f_popularity = (popularity_filter, min_popularity)
+    f_type = (filter_by_type, TYPE)
+    f_genres = (filter_by_genre, GENRE)
+    f_year = (filter_by_year, min_year, max_year)
+    f_episodes = (filter_by_episodes, min_episodes, max_episodes)
+    f_adult = (True, adult)
+    f_popularity = (filter_by_popularity, min_popularity)
     count = 0
     for i in range(6000):
         if rec[i] not in seen:
@@ -148,23 +141,23 @@ def recommendation_for_user(username):
             if f_genres[0]:
                 if not hasGenre(rec[i], f_genres[1]):
                     allowed = False
-            if f_year[0]:
-                if StartYear(rec[i])<f_year[1] or StartYear(rec[i])>f_year[2]:
-                    allowed = False
+            if StartYear(rec[i])<f_year[1] or StartYear(rec[i])>f_year[2]:
+                allowed = False
             if f_episodes[0]:
                 if numEpisodes(rec[i])<f_episodes[1] or numEpisodes(rec[i])>f_episodes[2]:
                     allowed = False
-            if f_adult[0]:
-                if isAdult(rec[i])!=f_adult[1]:
-                    allowed = False
+            if isAdult(rec[i])!=f_adult[1]:
+                allowed = False
             if allowed:
-                print Recommendations.append(titles[rec[i]])
+                print Recommendations.append(titles[rec[i]].decode("utf8"))
                 count +=1
         if count>15:
             break
     return Recommendations
 
-def recommendation_for_non_user():
+def recommendation_for_non_user(adult, filter_by_type, TYPE, filter_by_genre, GENRE,
+filter_by_year, min_year, max_year, filter_by_episodes, min_episodes, max_episodes,
+filter_by_popularity, min_popularity):
     Recommendations = []
     new_R=np.zeros(V.shape[1])
     for i in range(len(new_R)):
@@ -173,21 +166,12 @@ def recommendation_for_non_user():
     rec=np.argsort(-1*new_R)
     rec=[item_mapping[x] for x in rec]
 
-    type_filter=True
-    kind_type='TV'
-    genre_filter=False
-    kind_genre='Action'
-    year_filter, min_year, max_year = False, 2000, 2004
-    episodes_filter, min_episodes, max_episodes = False, 1, 100
-    adult_filter, kind_adult = True, False
-    popularity_filter, min_popularity = False, 1000
-
-    f_type = (type_filter, kind_type)
-    f_genres = (genre_filter, kind_genre)
-    f_year = (year_filter, min_year, max_year)
-    f_episodes = (episodes_filter, min_episodes, max_episodes)
-    f_adult = (adult_filter, kind_adult)
-    f_popularity = (popularity_filter, min_popularity)
+    f_type = (filter_by_type, TYPE)
+    f_genres = (filter_by_genre, GENRE)
+    f_year = (filter_by_year, min_year, max_year)
+    f_episodes = (filter_by_episodes, min_episodes, max_episodes)
+    f_adult = (True, adult)
+    f_popularity = (filter_by_popularity, min_popularity)
     count = 0
     for i in range(6000):
         allowed = True
@@ -206,9 +190,8 @@ def recommendation_for_non_user():
         if f_episodes[0]:
             if numEpisodes(rec[i])<f_episodes[1] or numEpisodes(rec[i])>f_episodes[2]:
                 allowed = False
-        if f_adult[0]:
-            if isAdult(rec[i])!=f_adult[1]:
-                allowed = False
+        if isAdult(rec[i])!=f_adult[1]:
+            allowed = False
         if allowed:
             #print rec[i], titles[rec[i]], new_R[list(item_mapping).index(rec[i])]
             Recommendations.append(titles[rec[i]].decode("utf8"))
@@ -221,7 +204,64 @@ def recommendation_for_non_user():
 def submission_page():
     return '''
         <form action="/recommendation" method='POST' >
-            <input type="text" name="user_input" />
+            Anilist.co username: <br>
+            <input type="text" name="user_name" /><br>
+            <p></p>
+            Minimum release year (eg 2005): <br>
+            <input type="text" name="min_year" /><br>
+            <p></p>
+            Maximum release year (eg 2016): <br>
+            <input type="text" name="max_year" /><br>
+            <p></p>
+            <select name="adult">
+                <option value="watch adult shows?">Watch Adult Shows?</option>
+                <option value="yes">yes</option>
+                <option value="no">no</option>
+            </select><br>
+            <p></p>
+            <select name="Type">
+                <option value="Filter by Type">Filter by Type</option>
+                <option value="TV">TV</option>
+                <option value="Movie">Movie</option>
+                <option value="Special">Special</option>
+                <option value="TV Short">TV Short</option>
+                <option value="OVA">OVA</option>
+                <option value="ONA">ONA</option>
+                <option value="Music">Music</option>
+            </select><br>
+            <p></p>
+            <select name="Genre">
+                <option value="Filter by Genre">Filter by Genre</option>
+                <option value="Action">Action</option>
+                <option value="Adventure">Adventure</option>
+                <option value="Comedy">Comedy</option>
+                <option value="Drama">Drama</option>
+                <option value="Ecchi">Ecchi</option>
+                <option value="Fantasy">Fantasy</option>
+                <option value="Horror">Horror</option>
+                <option value="Mahou Shoujo">Mahou Shoujo</option>
+                <option value="Mecha">Mecha</option>
+                <option value="Music">Music</option>
+                <option value="Mystery">Mystery</option>
+                <option value="Psychological">Psychological</option>
+                <option value="Romance">Romance</option>
+                <option value="Sci-Fi">Sci-Fi</option>
+                <option value="Slice of Life">Slice of Life</option>
+                <option value="Sports">Sports</option>
+                <option value="Supernatural">Supernatural</option>
+                <option value="Thriller">Thriller</option>
+                <option value="Hentai">Hentai</option>
+            </select><br>
+            <p></p>
+            Minimum number of episodes: <br>
+            <input type="text" name="min_episodes"/><br>
+            <p></p>
+            Maximum number of episodes: <br>
+            <input type="text" name="max_episodes"/><br>
+            <p></p>
+            Minimum number of views show has: <br>
+            <input type="text" name="min_popularity" /><br>
+            <p></p>
             <input type="submit" />
         </form>
         '''
@@ -229,6 +269,55 @@ def submission_page():
 @app.route('/recommendation', methods=["POST"])
 def index():
     user = {'nickname':'Miguel'}
-    text = str(request.form['user_input'])
-    posts = recommendation_for_user(text)
+    adult = str(request.form['adult'])=='yes'
+    text = str(request.form['user_name'])
+    filter_by_type = str(request.form['Type'])!='Filter by Type'
+    TYPE = str(request.form['Type'])
+    filter_by_genre = str(request.form['Genre'])!='Filter by Genre'
+    GENRE = str(request.form['Genre'])
+    min_year = str(request.form['min_year'])
+    max_year = str(request.form['max_year'])
+    try:
+        min_year = float(min_year)
+    except:
+        min_year = 1
+    try:
+        max_year = float(max_year)
+    except:
+        max_year = 3000
+    if type(min_year)==float or type(max_year)==float:
+        filter_by_year=True
+    else:
+        filter_by_year=False
+    min_popularity = str(request.form['min_popularity'])
+    try:
+        min_popularity = float(min_popularity)
+    except:
+        min_popularity = 1
+    if type(min_popularity)==float:
+        filter_by_popularity=True
+    else:
+        filter_by_popularity=False
+    min_episodes = str(request.form['min_episodes'])
+    max_episodes = str(request.form['max_episodes'])
+    try:
+        min_episodes = float(min_episodes)
+    except:
+        min_episodes = 0
+    try:
+        max_episodes = float(max_episodes)
+    except:
+        max_episodes = 30000
+    if type(min_episodes)==float or type(max_episodes)==float:
+        filter_by_episodes=True
+    else:
+        filter_by_episodes=False
+    if text == '':
+        posts = recommendation_for_non_user(adult, filter_by_type, TYPE, filter_by_genre,
+         GENRE, filter_by_year, min_year, max_year, filter_by_episodes, min_episodes,
+         max_episodes, filter_by_popularity, min_popularity)
+    else:
+        posts = recommendation_for_user(text, adult, filter_by_type, TYPE, filter_by_genre,
+         GENRE, filter_by_year, min_year, max_year, filter_by_episodes, min_episodes,
+         max_episodes, filter_by_popularity, min_popularity)
     return render_template('index.html', title='Home', user=user, posts=posts)
