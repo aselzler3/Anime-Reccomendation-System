@@ -5,31 +5,42 @@ from scipy.sparse import csr_matrix
 import requests
 import ast
 
+# V transpose as pandas dataframe
 V_T_df=pd.read_csv('data/spark_V.csv')
+#Indicies of V transpose that correspond to anime id.
 id_map=pd.read_csv('data/id_mapping.csv')
+# Average rating of each show corresponding to each anime id.
 avg_show=pd.read_csv('data/avg_show_R.csv')
+# number of people that watched each show corresponding to each anime id
 num_views=pd.read_csv('data/num_views.csv')
 item_mapping=np.array(id_map['col1'])
+# Info about each show corresponding to each anime id. Start date, number of
+# episodes, whether its adult or not, title of show, etc.
 series_df=pd.read_csv('data/series_data.csv')
 series_df['real_genres']=series_df['genres'].apply(lambda x: ast.literal_eval(x))
+# G is a list of unique genres
 G = []
 for x in series_df['real_genres']:
     for y in x:
         if y not in G:
             G.append(y)
+# Titles of all shows corresponding to each anime id
 titles={}
 for i in range(len(series_df)):
     ID = series_df['id'][i]
     title = series_df['title_english'][i]
     titles[ID] = title
+# Popularity is number of people that viewed each show corresponding to each anime id.
 popularity={}
 for x in np.array(num_views):
     popularity[x[0]]=x[1]
 V=np.array(V_T_df).T
+# Average ratings for each show corresponding to each anime id.
 average_ratings={}
 for i in range(len(avg_show)):
     average_ratings[avg_show['anime_id'][i]]=avg_show['avg_for_show'][i]
 
+# finds year show aired corresponding to each anime id
 def StartYear(ID):
     if len(list(series_df[series_df['id']==ID]['start_date']))>0:
         if type(list(series_df[series_df['id']==ID]['start_date'])[0])==str:
@@ -37,17 +48,20 @@ def StartYear(ID):
     else:
         return None
 
+# finds whether show corresponding to anime id is adult or not.
 def isAdult(ID):
     if len(list(series_df[series_df['id']==ID]['adult'])):
         return list(series_df[series_df['id']==ID]['adult'])[0]
     else:
         return None
 
+# finds if a certain genre is associated with a show corresponding to anime id
 def hasGenre(ID, genre):
     if len(list(series_df[series_df['id']==ID]['real_genres']))>0:
         return genre in list(series_df[series_df['id']==ID]['real_genres'])[0]
     else:
         return None
+
 
 def numEpisodes(ID):
     if len(list(series_df[series_df['id']==ID]['total_episodes']))>0:
