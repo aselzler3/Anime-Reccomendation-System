@@ -203,6 +203,18 @@ filter_by_popularity, min_popularity):
 @app.route('/')
 def submission_page():
     return '''
+        <html>
+          <head>
+            <title></title>
+            <title>Welcome to microblog</title>
+          </head>
+          <body>
+            <h1>Welcome!</h1>
+            <p>This program suggests animes for you to watch. Pick and choose which
+            filters you would like to apply to customize your search. Note: you do not
+            need an Anilist.co account to use this service.</p>
+          </body>
+        </html>
         <form action="/recommendation" method='POST' >
             Anilist.co username: <br>
             <input type="text" name="user_name" /><br>
