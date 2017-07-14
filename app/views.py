@@ -12,7 +12,7 @@ def startyear(string):
         result = int(string[:4])
     except:
         result = 1
-    return 1
+    return result
 
 V_T_df=pd.read_csv('data/spark_V.csv')
 id_map=pd.read_csv('data/id_mapping.csv')
