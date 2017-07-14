@@ -156,8 +156,8 @@ filter_by_popularity, min_popularity, series_df):
     rec_descriptions = np.array(series_df['description'])
     rec_ids = np.array(series_df['id'])
     for i in range(len(series_df)):
-        Recommendations.append({'title':rec_titles[i].decode("utf8"),
-'description':rec_descriptions[i].decode("utf8"), 'id':'https://anilist.co/anime/'+str(rec_ids[i])})
+        Recommendations.append({'title':str(rec_titles[i]).decode("utf8"),
+'description':str(rec_descriptions[i]).decode("utf8"), 'id':'https://anilist.co/anime/'+str(rec_ids[i]),'picture':'https://cdn.anilist.co/img/dir/anime/reg/'+str(rec_ids[i])+'.jpg'})
         if i>19:
             break
 
@@ -204,8 +204,8 @@ filter_by_popularity, min_popularity, series_df):
     rec_descriptions = np.array(series_df['description'])
     rec_ids = np.array(series_df['id'])
     for i in range(len(series_df)):
-        Recommendations.append({'title':rec_titles[i].decode("utf8"),
-'description':rec_descriptions[i].decode("utf8"), 'id':'https://anilist.co/anime/'+str(rec_ids[i])}) 
+        Recommendations.append({'title':str(rec_titles[i]).decode("utf8"),
+'description':str(rec_descriptions[i]).decode("utf8"), 'id':'https://anilist.co/anime/'+str(rec_ids[i]),'picture':'https://cdn.anilist.co/img/dir/anime/reg/'+str(rec_ids[i])+'.jpg'}) 
         if i>19:
             break
 

@@ -2,7 +2,10 @@
 {% block content %}
   <h1></h1>
   {% for post in posts %}
-  <div><h1><a href={{ post.id }}>{{ post.title }}</a></b></h1>
-  <p>{{ post.description }}</p></div>
+  <div><h1><a href={{ post.id }}>{{ post.title }}</a></b></h1></div>
+  <div>
+    <img src={{ post.picture }} alt="" />
+    <p>{{ post.description }}</p>
+  </div>
   {% endfor %}
 {% endblock %}
