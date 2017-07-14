@@ -7,65 +7,68 @@ import ast
 from flask import render_template, Flask, request
 from app import app
 
+def startyear(string):
+    try:
+        result = int(string[:4])
+    except:
+        result = 1
+    return result
+
 V_T_df=pd.read_csv('data/spark_V.csv')
 id_map=pd.read_csv('data/id_mapping.csv')
 avg_show=pd.read_csv('data/avg_show_R.csv')
 num_views=pd.read_csv('data/num_views.csv')
-item_mapping=np.array(id_map['col1'])
+V_T_df['id'] = id_map['col1']
+
 series_df=pd.read_csv('data/series_data.csv')
 series_df['real_genres']=series_df['genres'].apply(lambda x: ast.literal_eval(x))
+
+series_df['in'] = series_df['id'].apply(lambda x: x in np.array(V_T_df['id']))
+series_df=series_df[series_df['in']]
+series_df=series_df.sort_values('id')
+
+V_T_df['in'] = V_T_df['id'].apply(lambda x: x in np.array(series_df['id']))
+V_T_df = V_T_df[V_T_df['in']]
+
+avg_show['in']=avg_show['anime_id'].apply(lambda x: x in np.array(series_df['id']))
+avg_show=avg_show[avg_show['in']]
+
+num_views['in']=num_views['anime_id'].apply(lambda x: x in np.array(series_df['id']))
+num_views=num_views[num_views['in']]
+
+series_df['average_rating']=np.array(avg_show['avg_for_show'])
+series_df['num_views']=np.array(num_views['num_views'])
+item_mapping = np.array(series_df['id'])
+
 G = []
 for x in series_df['real_genres']:
     for y in x:
         if y not in G:
             G.append(y)
+
 titles={}
 for i in range(len(series_df)):
-    ID = series_df['id'][i]
-    title = series_df['title_english'][i]
+    ID = np.array(series_df['id'])[i]
+    title = np.array(series_df['title_english'])[i]
     titles[ID] = title
+
 popularity={}
-for x in np.array(num_views):
-    popularity[x[0]]=x[1]
-V=np.array(V_T_df).T
+for i in range(len(series_df)):
+    ID = np.array(series_df['id'])[i]
+    avr = np.array(series_df['num_views'])[i]
+    popularity[ID] = avr
+
+V=np.array(V_T_df[['col'+str(i) for i in range(1,11)]]).T
+
 average_ratings={}
 for i in range(len(avg_show)):
-    average_ratings[avg_show['anime_id'][i]]=avg_show['avg_for_show'][i]
-
-def StartYear(ID):
-    if len(list(series_df[series_df['id']==ID]['start_date']))>0:
-        if type(list(series_df[series_df['id']==ID]['start_date'])[0])==str:
-            return int(list(series_df[series_df['id']==ID]['start_date'])[0][:4])
-    else:
-        return None
-
-def isAdult(ID):
-    if len(list(series_df[series_df['id']==ID]['adult'])):
-        return list(series_df[series_df['id']==ID]['adult'])[0]
-    else:
-        return None
-
-def hasGenre(ID, genre):
-    if len(list(series_df[series_df['id']==ID]['real_genres']))>0:
-        return genre in list(series_df[series_df['id']==ID]['real_genres'])[0]
-    else:
-        return None
-
-def numEpisodes(ID):
-    if len(list(series_df[series_df['id']==ID]['total_episodes']))>0:
-        return list(series_df[series_df['id']==ID]['total_episodes'])[0]
-    else:
-        return None
-
-def Type(ID):
-    if len(list(series_df[series_df['id']==ID]['type']))>0:
-        return list(series_df[series_df['id']==ID]['type'])[0]
-    else:
-        return None
+    ID = np.array(series_df['id'])[i]
+    avr = np.array(series_df['average_rating'])[i]
+    average_ratings[ID] = avr
 
 def recommendation_for_user(text, adult, filter_by_type, TYPE, filter_by_genre, GENRE,
 filter_by_year, min_year, max_year, filter_by_episodes, min_episodes, max_episodes,
-filter_by_popularity, min_popularity):
+filter_by_popularity, min_popularity, series_df):
     Recommendations = []
     url='https://anilist.co/api/'
     cid='selzla-6acux'
@@ -104,6 +107,7 @@ filter_by_popularity, min_popularity):
         score=completed[i]['score_raw']
         scores.append([anime_id, score])
     user=np.array([row for row in scores if row[0] in item_mapping])
+
     user_vector = np.zeros(V.shape[1])
     for row in user:
         user_vector[list(item_mapping).index(row[0])]=row[1]+74-np.mean(user[:,1])-average_ratings[row[0]]
@@ -114,13 +118,13 @@ filter_by_popularity, min_popularity):
     for i in range(len(new_R)):
         ratio = (popularity[item_mapping[i]]-np.sqrt(popularity[item_mapping[i]]))/popularity[item_mapping[i]]
         new_R[i]=(new_R[i]+average_ratings[item_mapping[i]]+np.mean(user[:,1])-74)*ratio
+
     seen = [row[0] for row in scores]
     others = [watching, dropped, on_hold, plan_to_watch]
     for x in others:
         for i in range(len(x)):
             seen.append(x[i]['anime']['id'])
-    rec=np.argsort(-1*new_R)
-    rec=[item_mapping[x] for x in rec]
+    series_df['predicted_ratings'] = new_R
 
     f_type = (filter_by_type, TYPE)
     f_genres = (filter_by_genre, GENRE)
@@ -128,43 +132,49 @@ filter_by_popularity, min_popularity):
     f_episodes = (filter_by_episodes, min_episodes, max_episodes)
     f_adult = (True, adult)
     f_popularity = (filter_by_popularity, min_popularity)
-    count = 0
-    for i in range(6000):
-        if rec[i] not in seen:
-            allowed = True
-            if f_popularity[0]:
-                if popularity[rec[i]]<f_popularity[1]:
-                    allowed = False
-            if f_type[0]:
-                if Type(rec[i])!=f_type[1]:
-                    allowed = False
-            if f_genres[0]:
-                if not hasGenre(rec[i], f_genres[1]):
-                    allowed = False
-            if StartYear(rec[i])<f_year[1] or StartYear(rec[i])>f_year[2]:
-                allowed = False
-            if f_episodes[0]:
-                if numEpisodes(rec[i])<f_episodes[1] or numEpisodes(rec[i])>f_episodes[2]:
-                    allowed = False
-            if isAdult(rec[i])!=f_adult[1]:
-                allowed = False
-            if allowed:
-                print Recommendations.append(titles[rec[i]].decode("utf8"))
-                count +=1
-        if count>15:
+
+    if f_type[0]:
+        series_df = series_df[series_df['type']==f_type[1]]
+    if f_genres[0]:
+        series_df['has_genre'] = series_df['real_genres'].apply(lambda x: f_genres[1] in x)
+        series_df = series_df[series_df['has_genre']]
+    if f_year[0]:
+        series_df['start_year'] = series_df['start_date'].apply(startyear)
+        series_df = series_df[series_df['start_year']>=f_year[1]]
+        series_df = series_df[series_df['start_year']<=f_year[2]]
+    if f_episodes[0]:
+        series_df = series_df[series_df['total_episodes']>=f_episodes[1]]
+        series_df = series_df[series_df['total_episodes']<=f_episodes[2]]
+    if f_adult[0]:
+        series_df = series_df[series_df['adult']==f_adult[1]]
+    if f_popularity[0]:
+        series_df = series_df[series_df['num_views']>=f_popularity[1]]
+    series_df = series_df.sort_values('predicted_ratings', ascending=False)
+    series_df['not_seen'] = series_df['id'].apply(lambda x: x not in seen)
+    series_df = series_df[series_df['not_seen']]
+    rec_titles = np.array(series_df['title_english'])
+    rec_descriptions = np.array(series_df['description'])
+    rec_ids = np.array(series_df['id'])
+    for i in range(len(series_df)):
+        Recommendations.append({'title':rec_titles[i].decode("utf8"),
+'description':rec_descriptions[i].decode("utf8"), 'id':'https://anilist.co/anime/'+str(rec_ids[i])})
+        if i>19:
             break
+
+
     return Recommendations
 
 def recommendation_for_non_user(adult, filter_by_type, TYPE, filter_by_genre, GENRE,
 filter_by_year, min_year, max_year, filter_by_episodes, min_episodes, max_episodes,
-filter_by_popularity, min_popularity):
+filter_by_popularity, min_popularity, series_df):
     Recommendations = []
+
     new_R=np.zeros(V.shape[1])
     for i in range(len(new_R)):
         ratio = (popularity[item_mapping[i]]-np.sqrt(popularity[item_mapping[i]]))/popularity[item_mapping[i]]
         new_R[i]=average_ratings[item_mapping[i]]*ratio
-    rec=np.argsort(-1*new_R)
-    rec=[item_mapping[x] for x in rec]
+
+    series_df['predicted_ratings'] = new_R
 
     f_type = (filter_by_type, TYPE)
     f_genres = (filter_by_genre, GENRE)
@@ -172,37 +182,50 @@ filter_by_popularity, min_popularity):
     f_episodes = (filter_by_episodes, min_episodes, max_episodes)
     f_adult = (True, adult)
     f_popularity = (filter_by_popularity, min_popularity)
-    count = 0
-    for i in range(6000):
-        allowed = True
-        if f_popularity[0]:
-            if popularity[rec[i]]<f_popularity[1]:
-                allowed = False
-        if f_type[0]:
-            if Type(rec[i])!=f_type[1]:
-                allowed = False
-        if f_genres[0]:
-            if not hasGenre(rec[i], f_genres[1]):
-                allowed = False
-        if f_year[0]:
-            if StartYear(rec[i])<f_year[1] or StartYear(rec[i])>f_year[2]:
-                allowed = False
-        if f_episodes[0]:
-            if numEpisodes(rec[i])<f_episodes[1] or numEpisodes(rec[i])>f_episodes[2]:
-                allowed = False
-        if isAdult(rec[i])!=f_adult[1]:
-            allowed = False
-        if allowed:
-            #print rec[i], titles[rec[i]], new_R[list(item_mapping).index(rec[i])]
-            Recommendations.append(titles[rec[i]].decode("utf8"))
-            count +=1
-        if count>15:
+
+    if f_type[0]:
+        series_df = series_df[series_df['type']==f_type[1]]
+    if f_genres[0]:
+        series_df['has_genre'] = series_df['real_genres'].apply(lambda x: f_genres[1] in x)
+        series_df = series_df[series_df['has_genre']]
+    if f_year[0]:
+        series_df['start_year'] = series_df['start_date'].apply(startyear)
+        series_df = series_df[series_df['start_year']>=f_year[1]]
+        series_df = series_df[series_df['start_year']<=f_year[2]]
+    if f_episodes[0]:
+        series_df = series_df[series_df['total_episodes']>=f_episodes[1]]
+        series_df = series_df[series_df['total_episodes']<=f_episodes[2]]
+    if f_adult[0]:
+        series_df = series_df[series_df['adult']==f_adult[1]]
+    if f_popularity[0]:
+        series_df = series_df[series_df['num_views']>=f_popularity[1]]
+    series_df = series_df.sort_values('predicted_ratings', ascending=False)
+    rec_titles = np.array(series_df['title_english'])
+    rec_descriptions = np.array(series_df['description'])
+    rec_ids = np.array(series_df['id'])
+    for i in range(len(series_df)):
+        Recommendations.append({'title':rec_titles[i].decode("utf8"),
+'description':rec_descriptions[i].decode("utf8"), 'id':'https://anilist.co/anime/'+str(rec_ids[i])}) 
+        if i>19:
             break
+
     return Recommendations
 
 @app.route('/')
 def submission_page():
     return '''
+        <html>
+          <head>
+            <title></title>
+            <title>Welcome to microblog</title>
+          </head>
+          <body>
+            <h1>Welcome!</h1>
+            <p>This program suggests animes for you to watch. Pick and choose which
+            filters you would like to apply to customize your search. Note: you do not
+            need an Anilist.co account to use this service.</p>
+          </body>
+        </html>
         <form action="/recommendation" method='POST' >
             Anilist.co username: <br>
             <input type="text" name="user_name" /><br>
@@ -268,6 +291,7 @@ def submission_page():
 
 @app.route('/recommendation', methods=["POST"])
 def index():
+
     user = {'nickname':'Miguel'}
     adult = str(request.form['adult'])=='yes'
     text = str(request.form['user_name'])
@@ -315,9 +339,9 @@ def index():
     if text == '':
         posts = recommendation_for_non_user(adult, filter_by_type, TYPE, filter_by_genre,
          GENRE, filter_by_year, min_year, max_year, filter_by_episodes, min_episodes,
-         max_episodes, filter_by_popularity, min_popularity)
+         max_episodes, filter_by_popularity, min_popularity, series_df)
     else:
         posts = recommendation_for_user(text, adult, filter_by_type, TYPE, filter_by_genre,
          GENRE, filter_by_year, min_year, max_year, filter_by_episodes, min_episodes,
-         max_episodes, filter_by_popularity, min_popularity)
+         max_episodes, filter_by_popularity, min_popularity, series_df)
     return render_template('index.html', title='Home', user=user, posts=posts)

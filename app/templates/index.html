@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
-  <h1>Hi, {{ user.nickname }}!</h1>
+  <h1></h1>
   {% for post in posts %}
-  <div><p>{{ post }}</b></p></div>
+  <div><h1><a href={{ post.id }}>{{ post.title }}</a></b></h1>
+  <p>{{ post.description }}</p></div>
   {% endfor %}
 {% endblock %}
