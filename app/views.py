@@ -66,7 +66,7 @@ for i in range(len(avg_show)):
     avr = np.array(series_df['average_rating'])[i]
     average_ratings[ID] = avr
 
-def recommendation_for_user(text, adult, filter_by_type, TYPE, filter_by_genre, GENRE,
+def recommendation_for_user(text, filter_by_type, TYPE, filter_by_genre, GENRE,
 filter_by_year, min_year, max_year, filter_by_episodes, min_episodes, max_episodes,
 filter_by_popularity, min_popularity, series_df):
     Recommendations = []
@@ -130,7 +130,6 @@ filter_by_popularity, min_popularity, series_df):
     f_genres = (filter_by_genre, GENRE)
     f_year = (filter_by_year, min_year, max_year)
     f_episodes = (filter_by_episodes, min_episodes, max_episodes)
-    f_adult = (True, adult)
     f_popularity = (filter_by_popularity, min_popularity)
 
     if f_type[0]:
@@ -145,8 +144,6 @@ filter_by_popularity, min_popularity, series_df):
     if f_episodes[0]:
         series_df = series_df[series_df['total_episodes']>=f_episodes[1]]
         series_df = series_df[series_df['total_episodes']<=f_episodes[2]]
-    if f_adult[0]:
-        series_df = series_df[series_df['adult']==f_adult[1]]
     if f_popularity[0]:
         series_df = series_df[series_df['num_views']>=f_popularity[1]]
     series_df = series_df.sort_values('predicted_ratings', ascending=False)
@@ -164,7 +161,7 @@ filter_by_popularity, min_popularity, series_df):
 
     return Recommendations
 
-def recommendation_for_non_user(adult, filter_by_type, TYPE, filter_by_genre, GENRE,
+def recommendation_for_non_user(filter_by_type, TYPE, filter_by_genre, GENRE,
 filter_by_year, min_year, max_year, filter_by_episodes, min_episodes, max_episodes,
 filter_by_popularity, min_popularity, series_df):
     Recommendations = []
@@ -180,7 +177,6 @@ filter_by_popularity, min_popularity, series_df):
     f_genres = (filter_by_genre, GENRE)
     f_year = (filter_by_year, min_year, max_year)
     f_episodes = (filter_by_episodes, min_episodes, max_episodes)
-    f_adult = (True, adult)
     f_popularity = (filter_by_popularity, min_popularity)
 
     if f_type[0]:
@@ -195,8 +191,6 @@ filter_by_popularity, min_popularity, series_df):
     if f_episodes[0]:
         series_df = series_df[series_df['total_episodes']>=f_episodes[1]]
         series_df = series_df[series_df['total_episodes']<=f_episodes[2]]
-    if f_adult[0]:
-        series_df = series_df[series_df['adult']==f_adult[1]]
     if f_popularity[0]:
         series_df = series_df[series_df['num_views']>=f_popularity[1]]
     series_df = series_df.sort_values('predicted_ratings', ascending=False)
@@ -235,12 +229,6 @@ def submission_page():
             <p></p>
             Maximum release year (eg 2016): <br>
             <input type="text" name="max_year" /><br>
-            <p></p>
-            <select name="adult">
-                <option value="watch adult shows?">Watch Adult Shows?</option>
-                <option value="yes">yes</option>
-                <option value="no">no</option>
-            </select><br>
             <p></p>
             <select name="Type">
                 <option value="Filter by Type">Filter by Type</option>
@@ -293,7 +281,6 @@ def submission_page():
 def index():
 
     user = {'nickname':'Miguel'}
-    adult = str(request.form['adult'])=='yes'
     text = str(request.form['user_name'])
     filter_by_type = str(request.form['Type'])!='Filter by Type'
     TYPE = str(request.form['Type'])
@@ -337,11 +324,11 @@ def index():
     else:
         filter_by_episodes=False
     if text == '':
-        posts = recommendation_for_non_user(adult, filter_by_type, TYPE, filter_by_genre,
+        posts = recommendation_for_non_user(filter_by_type, TYPE, filter_by_genre,
          GENRE, filter_by_year, min_year, max_year, filter_by_episodes, min_episodes,
          max_episodes, filter_by_popularity, min_popularity, series_df)
     else:
-        posts = recommendation_for_user(text, adult, filter_by_type, TYPE, filter_by_genre,
+        posts = recommendation_for_user(text, filter_by_type, TYPE, filter_by_genre,
          GENRE, filter_by_year, min_year, max_year, filter_by_episodes, min_episodes,
          max_episodes, filter_by_popularity, min_popularity, series_df)
     return render_template('index.html', title='Home', user=user, posts=posts)
