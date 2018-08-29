@@ -14,12 +14,18 @@ def startyear(string):
         result = 1
     return result
 
+#V_T_df is the transpose of the V matrix created from fitting 
+#matrix factorization model in make_spark_V.ipynb
 V_T_df=pd.read_csv('data/spark_V.csv')
+#maps Anime_id to its respective index
 id_map=pd.read_csv('data/id_mapping.csv')
+#Average ratings of all shows
 avg_show=pd.read_csv('data/avg_show_R.csv')
+#Number of people that gave each show a rating
 num_views=pd.read_csv('data/num_views.csv')
 V_T_df['id'] = id_map['col1']
 
+#Want to make sure there are no show id's in series_df but not in V_T_df and vise versa
 series_df=pd.read_csv('data/series_data.csv')
 series_df['real_genres']=series_df['genres'].apply(lambda x: ast.literal_eval(x))
 
@@ -69,7 +75,14 @@ for i in range(len(avg_show)):
 def recommendation_for_user(text, filter_by_type, TYPE, filter_by_genre, GENRE,
 filter_by_year, min_year, max_year, filter_by_episodes, min_episodes, max_episodes,
 filter_by_popularity, min_popularity, series_df):
+    """
+    Recommendation procedure for anilist user with user data. The latent features 
+    for the user is the vector that minimizes the squared error between the ratings
+    given by that user and the matrix product between the latent feature vector and V. 
+    """
     Recommendations = []
+    
+    #Get user data
     url='https://anilist.co/api/'
     cid='selzla-6acux'
     sec='eGi4fmsY9pV64E1fSTWJJ1'
@@ -80,6 +93,7 @@ filter_by_popularity, min_popularity, series_df):
     completed = user_anime.json()['lists']['completed']
 
 
+    #Some users do not have shows added in their other lists (watching, dropped, etc)
     if 'watching' in user_anime.json()['lists']:
         watching = user_anime.json()['lists']['watching']
     else:
@@ -99,7 +113,8 @@ filter_by_popularity, min_popularity, series_df):
         plan_to_watch = user_anime.json()['lists']['plan_to_watch']
     else:
         plan_to_watch = []
-
+        
+    #record scores for user
     scores = []
     for i in range(len(completed)):
         title=completed[i]['anime']['title_english'].encode("utf-8")
@@ -107,15 +122,21 @@ filter_by_popularity, min_popularity, series_df):
         score=completed[i]['score_raw']
         scores.append([anime_id, score])
     user=np.array([row for row in scores if row[0] in item_mapping])
-
+    
+    # Scores for each anime must go in the correct spot by index in the user vector
     user_vector = np.zeros(V.shape[1])
     for row in user:
         user_vector[list(item_mapping).index(row[0])]=row[1]+74-np.mean(user[:,1])-average_ratings[row[0]]
+    #Eliminate columns in user vector and V where the user has not seen that show
+    #This is so that the latent features vector "s" can be optimized for the shows the user has seen
     new_user=user_vector[np.where(user_vector!=0)]
     new_V=V.T[np.where(user_vector!=0)].T
     s=np.linalg.lstsq(new_V.T,new_user.T)[0].T
+    #new_R represents predicted ratings for all the shows
     new_R=np.dot(s,V)
     for i in range(len(new_R)):
+        #Adjust predicted ratings for how many views it has. Gives lower bound 
+        #of confidence interval for the "True" predicted rating
         ratio = (popularity[item_mapping[i]]-np.sqrt(popularity[item_mapping[i]]))/popularity[item_mapping[i]]
         new_R[i]=(new_R[i]+average_ratings[item_mapping[i]]+np.mean(user[:,1])-74)*ratio
 
@@ -125,6 +146,8 @@ filter_by_popularity, min_popularity, series_df):
         for i in range(len(x)):
             seen.append(x[i]['anime']['id'])
     series_df['predicted_ratings'] = new_R
+    
+    #Filters selected by user on website
 
     f_type = (filter_by_type, TYPE)
     f_genres = (filter_by_genre, GENRE)
@@ -164,6 +187,10 @@ filter_by_popularity, min_popularity, series_df):
 def recommendation_for_non_user(filter_by_type, TYPE, filter_by_genre, GENRE,
 filter_by_year, min_year, max_year, filter_by_episodes, min_episodes, max_episodes,
 filter_by_popularity, min_popularity, series_df):
+    """
+    Recommendations for non users are simpler than that for users. It recommends the shows
+    with the highest average ratings that satisfy the criteria the user selects on the website
+    """
     Recommendations = []
 
     new_R=np.zeros(V.shape[1])
